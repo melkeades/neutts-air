@@ -11,7 +11,7 @@ def main(input_text, ref_audio_path, ref_text, backbone, output_path="output.wav
     # Initialize NeuTTSAir with the desired model and codec
     tts = NeuTTSAir(
         backbone_repo=backbone,
-        backbone_device="cpu",
+        backbone_device="gpu",
         codec_repo="neuphonic/neucodec",
         codec_device="cpu"
     )
@@ -37,33 +37,33 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="NeuTTSAir Example")
     parser.add_argument(
-        "--input_text", 
-        type=str, 
-        required=True, 
+        "--input_text",
+        type=str,
+        required=True,
         help="Input text to be converted to speech"
     )
     parser.add_argument(
-        "--ref_audio", 
-        type=str, 
-        default="./samples/dave.wav", 
+        "--ref_audio",
+        type=str,
+        default="./samples/dave.wav",
         help="Path to reference audio file"
     )
     parser.add_argument(
         "--ref_text",
         type=str,
-        default="./samples/dave.txt", 
+        default="./samples/dave.txt",
         help="Reference text corresponding to the reference audio",
     )
     parser.add_argument(
-        "--output_path", 
-        type=str, 
-        default="output.wav", 
+        "--output_path",
+        type=str,
+        default="output.wav",
         help="Path to save the output audio"
     )
     parser.add_argument(
-        "--backbone", 
-        type=str, 
-        default="neuphonic/neutts-air", 
+        "--backbone",
+        type=str,
+        default="neuphonic/neutts-air",
         help="Huggingface repo containing the backbone checkpoint"
     )
     args = parser.parse_args()

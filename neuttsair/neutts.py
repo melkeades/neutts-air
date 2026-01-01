@@ -2,6 +2,7 @@ from typing import Generator
 from pathlib import Path
 import librosa
 import numpy as np
+import os
 import torch
 import re
 import platform
@@ -62,8 +63,8 @@ def _linear_overlap_add(frames: list[np.ndarray], stride: int) -> np.ndarray:
         t = np.linspace(0, 1, frame_length + 2, dtype=dtype)[1:-1]
         weight = np.abs(0.5 - (t - 0.5))
 
-        out[..., offset : offset + frame_length] += weight * frame
-        sum_weight[offset : offset + frame_length] += weight
+        out[..., offset: offset + frame_length] += weight * frame
+        sum_weight[offset: offset + frame_length] += weight
         offset += stride
     assert sum_weight.min() > 0
     return out / sum_weight
@@ -120,7 +121,8 @@ class NeuTTSAir:
             self.watermarker = None
 
     def _load_backbone(self, backbone_repo, backbone_device):
-        print(f"Loading backbone from: {backbone_repo} on {backbone_device} ...")
+        print(
+            f"Loading backbone from: {backbone_repo} on {backbone_device} ...")
 
         # GGUF loading
         if backbone_repo.endswith("gguf"):
@@ -192,7 +194,8 @@ class NeuTTSAir:
             case "neuphonic/neucodec-onnx-decoder":
 
                 if codec_device != "cpu":
-                    raise ValueError("Onnx decoder only currently runs on CPU.")
+                    raise ValueError(
+                        "Onnx decoder only currently runs on CPU.")
 
                 try:
                     from neucodec import NeuCodecOnnxDecoder
@@ -257,25 +260,30 @@ class NeuTTSAir:
             return self._infer_stream_ggml(ref_codes, ref_text, text)
 
         else:
-            raise NotImplementedError("Streaming is not implemented for the torch backend!")
+            raise NotImplementedError(
+                "Streaming is not implemented for the torch backend!")
 
     def encode_reference(self, ref_audio_path: str | Path):
         wav, _ = librosa.load(ref_audio_path, sr=16000, mono=True)
-        wav_tensor = torch.from_numpy(wav).float().unsqueeze(0).unsqueeze(0)  # [1, 1, T]
+        wav_tensor = torch.from_numpy(wav).float(
+        ).unsqueeze(0).unsqueeze(0)  # [1, 1, T]
         with torch.no_grad():
-            ref_codes = self.codec.encode_code(audio_or_path=wav_tensor).squeeze(0).squeeze(0)
+            ref_codes = self.codec.encode_code(
+                audio_or_path=wav_tensor).squeeze(0).squeeze(0)
         return ref_codes
 
     def _decode(self, codes: str):
 
         # Extract speech token IDs using regex
-        speech_ids = [int(num) for num in re.findall(r"<\|speech_(\d+)\|>", codes)]
+        speech_ids = [int(num)
+                      for num in re.findall(r"<\|speech_(\d+)\|>", codes)]
 
         if len(speech_ids) > 0:
 
             # Onnx decode
             if self._is_onnx_codec:
-                codes = np.array(speech_ids, dtype=np.int32)[np.newaxis, np.newaxis, :]
+                codes = np.array(speech_ids, dtype=np.int32)[
+                    np.newaxis, np.newaxis, :]
                 recon = self.codec.decode_code(codes)
 
             # Torch decode
@@ -300,12 +308,17 @@ class NeuTTSAir:
         self, ref_codes: list[int], ref_text: str, input_text: str
     ) -> list[int]:
 
-        input_text = self._to_phones(ref_text) + " " + self._to_phones(input_text)
-        speech_replace = self.tokenizer.convert_tokens_to_ids("<|SPEECH_REPLACE|>")
-        speech_gen_start = self.tokenizer.convert_tokens_to_ids("<|SPEECH_GENERATION_START|>")
+        input_text = self._to_phones(
+            ref_text) + " " + self._to_phones(input_text)
+        speech_replace = self.tokenizer.convert_tokens_to_ids(
+            "<|SPEECH_REPLACE|>")
+        speech_gen_start = self.tokenizer.convert_tokens_to_ids(
+            "<|SPEECH_GENERATION_START|>")
         text_replace = self.tokenizer.convert_tokens_to_ids("<|TEXT_REPLACE|>")
-        text_prompt_start = self.tokenizer.convert_tokens_to_ids("<|TEXT_PROMPT_START|>")
-        text_prompt_end = self.tokenizer.convert_tokens_to_ids("<|TEXT_PROMPT_END|>")
+        text_prompt_start = self.tokenizer.convert_tokens_to_ids(
+            "<|TEXT_PROMPT_START|>")
+        text_prompt_end = self.tokenizer.convert_tokens_to_ids(
+            "<|TEXT_PROMPT_END|>")
 
         input_ids = self.tokenizer.encode(input_text, add_special_tokens=False)
         chat = """user: Convert the text to speech:<|TEXT_REPLACE|>\nassistant:<|SPEECH_REPLACE|>"""
@@ -317,7 +330,7 @@ class NeuTTSAir:
             + [text_prompt_start]
             + input_ids
             + [text_prompt_end]
-            + ids[text_replace_idx + 1 :]  # noqa
+            + ids[text_replace_idx + 1:]  # noqa
         )
 
         speech_replace_idx = ids.index(speech_replace)
@@ -328,8 +341,10 @@ class NeuTTSAir:
         return ids
 
     def _infer_torch(self, prompt_ids: list[int]) -> str:
-        prompt_tensor = torch.tensor(prompt_ids).unsqueeze(0).to(self.backbone.device)
-        speech_end_id = self.tokenizer.convert_tokens_to_ids("<|SPEECH_GENERATION_END|>")
+        prompt_tensor = torch.tensor(prompt_ids).unsqueeze(
+            0).to(self.backbone.device)
+        speech_end_id = self.tokenizer.convert_tokens_to_ids(
+            "<|SPEECH_GENERATION_END|>")
         with torch.no_grad():
             output_tokens = self.backbone.generate(
                 prompt_tensor,
@@ -412,7 +427,8 @@ class NeuTTSAir:
                 ) * self.hop_length
                 sample_end = (
                     sample_start
-                    + (self.streaming_frames_per_chunk + 2 * self.streaming_overlap_frames) * self.hop_length
+                    + (self.streaming_frames_per_chunk + 2 *
+                       self.streaming_overlap_frames) * self.hop_length
                 )
                 curr_codes = token_cache[tokens_start:tokens_end]
                 recon = self._decode("".join(curr_codes))
@@ -428,7 +444,8 @@ class NeuTTSAir:
                 processed_recon = _linear_overlap_add(
                     audio_cache, stride=self.streaming_stride_samples
                 )
-                new_samples_end = len(audio_cache) * self.streaming_stride_samples
+                new_samples_end = len(audio_cache) * \
+                    self.streaming_stride_samples
                 processed_recon = processed_recon[
                     n_decoded_samples:new_samples_end
                 ]
@@ -441,7 +458,8 @@ class NeuTTSAir:
         if len(token_cache) > n_decoded_tokens:
             tokens_start = max(
                 len(token_cache)
-                - (self.streaming_lookback + self.streaming_overlap_frames + remaining_tokens),
+                - (self.streaming_lookback +
+                   self.streaming_overlap_frames + remaining_tokens),
                 0
             )
             sample_start = (
@@ -460,6 +478,7 @@ class NeuTTSAir:
             recon = recon[sample_start:]
             audio_cache.append(recon)
 
-            processed_recon = _linear_overlap_add(audio_cache, stride=self.streaming_stride_samples)
+            processed_recon = _linear_overlap_add(
+                audio_cache, stride=self.streaming_stride_samples)
             processed_recon = processed_recon[n_decoded_samples:]
             yield processed_recon

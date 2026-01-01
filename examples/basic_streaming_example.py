@@ -7,12 +7,13 @@ import pyaudio
 
 
 def main(input_text, ref_codes_path, ref_text, backbone):
-    assert backbone in ["neuphonic/neutts-air-q4-gguf", "neuphonic/neutts-air-q8-gguf"], "Must be a GGUF ckpt as streaming is only currently supported by llama-cpp."
-    
+    assert backbone in ["neuphonic/neutts-air-q4-gguf",
+                        "neuphonic/neutts-air-q8-gguf"], "Must be a GGUF ckpt as streaming is only currently supported by llama-cpp."
+
     # Initialize NeuTTSAir with the desired model and codec
     tts = NeuTTSAir(
         backbone_repo=backbone,
-        backbone_device="cpu",
+        backbone_device="gpu",
         codec_repo="neuphonic/neucodec-onnx-decoder",
         codec_device="cpu"
     )
@@ -38,7 +39,7 @@ def main(input_text, ref_codes_path, ref_text, backbone):
         audio = (chunk * 32767).astype(np.int16)
         print(audio.shape)
         stream.write(audio.tobytes())
-    
+
     stream.stop_stream()
     stream.close()
     p.terminate()
@@ -49,33 +50,33 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="NeuTTSAir Example")
     parser.add_argument(
-        "--input_text", 
-        type=str, 
-        required=True, 
+        "--input_text",
+        type=str,
+        required=True,
         help="Input text to be converted to speech"
     )
     parser.add_argument(
-        "--ref_codes", 
-        type=str, 
-        default="./samples/dave.pt", 
+        "--ref_codes",
+        type=str,
+        default="./samples/dave.pt",
         help="Path to pre-encoded reference audio"
     )
     parser.add_argument(
         "--ref_text",
         type=str,
-        default="./samples/dave.txt", 
+        default="./samples/dave.txt",
         help="Reference text corresponding to the reference audio",
     )
     parser.add_argument(
-        "--output_path", 
-        type=str, 
-        default="output.wav", 
+        "--output_path",
+        type=str,
+        default="output.wav",
         help="Path to save the output audio"
     )
     parser.add_argument(
-        "--backbone", 
-        type=str, 
-        default="neuphonic/neutts-air-q8-gguf", 
+        "--backbone",
+        type=str,
+        default="neuphonic/neutts-air-q8-gguf",
         help="Huggingface repo containing the backbone checkpoint. Must be GGUF."
     )
     args = parser.parse_args()
